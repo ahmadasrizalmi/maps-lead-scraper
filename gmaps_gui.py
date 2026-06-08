@@ -931,7 +931,30 @@ if st.button("🚀  Start Scraping", use_container_width=True):
             excel_data = create_excel(results, query)
             filename = f"gmaps_{re.sub(r'[^a-zA-Z0-9]', '_', query).strip('_')[:30]}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
             
-            col_dl1, col_dl2 = st.columns(2)
+            # Create CSV data
+            import csv
+            from io import StringIO
+            csv_buffer = StringIO()
+            csv_writer = csv.writer(csv_buffer)
+            csv_headers = ['No', 'Business Name', 'Category', 'Address', 'Phone', 'Website', 'Email', 
+                          'Instagram', 'Facebook', 'TikTok', 'Rating', 'Reviews', 'Status', 'Hours',
+                          'Google Maps URL', 'Description', 'Outreach Status', 'Notes']
+            csv_writer.writerow(csv_headers)
+            for idx, r in enumerate(results, 1):
+                social = r.get('social_media', {})
+                csv_writer.writerow([
+                    idx, r.get('name', ''), r.get('category', ''), r.get('address', ''),
+                    r.get('phone', ''), r.get('website', ''), r.get('email', ''),
+                    social.get('instagram', r.get('social_instagram', '')),
+                    social.get('facebook', r.get('social_facebook', '')),
+                    social.get('tiktok', r.get('social_tiktok', '')),
+                    r.get('rating', ''), r.get('reviews', ''), r.get('status', ''),
+                    r.get('hours', ''), r.get('maps_url', ''), r.get('description', ''),
+                    '', ''
+                ])
+            csv_data = csv_buffer.getvalue().encode('utf-8-sig')
+            
+            col_dl1, col_dl2, col_dl3 = st.columns(3)
             with col_dl1:
                 st.download_button(
                     label="📊  Download Excel",
@@ -941,6 +964,14 @@ if st.button("🚀  Start Scraping", use_container_width=True):
                     use_container_width=True
                 )
             with col_dl2:
+                st.download_button(
+                    label="📋  Download CSV",
+                    data=csv_data,
+                    file_name=filename.replace('.xlsx', '.csv'),
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            with col_dl3:
                 json_data = json.dumps(results, indent=2, ensure_ascii=False)
                 st.download_button(
                     label="📄  Download JSON",

@@ -586,6 +586,7 @@ Examples:
     parser.add_argument('--extract-emails', action='store_true', help='Visit websites to extract emails & social media')
     parser.add_argument('--proxy-file', help='File with proxy list (one per line)')
     parser.add_argument('--proxies', help='Comma-separated proxy list')
+    parser.add_argument('--format', choices=['xlsx', 'csv', 'both'], default='xlsx', help='Output format: xlsx, csv, or both (default: xlsx)')
     
     args = parser.parse_args()
     
@@ -629,10 +630,18 @@ Examples:
         print("\n❌ No results found. Try a different search query.")
         sys.exit(1)
     
-    # Save to Excel
-    save_to_excel(results, args.output, args.query)
+    # Save based on format
+    if args.format in ('xlsx', 'both'):
+        save_to_excel(results, args.output, args.query)
     
-    # Also save raw JSON as backup
+    if args.format == 'csv':
+        csv_file = args.output.replace('.xlsx', '.csv')
+        save_to_csv(results, csv_file)
+    elif args.format == 'both':
+        csv_file = args.output.replace('.xlsx', '.csv')
+        save_to_csv(results, csv_file)
+    
+    # Always save JSON backup
     json_file = args.output.replace('.xlsx', '.json')
     with open(json_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
@@ -640,6 +649,49 @@ Examples:
     
     print("\n✅ Done! Open the Excel file to start your outreach campaign.")
     print(f"   💡 Tip: Use 'Outreach Status' dropdown to track your progress")
+    if args.format in ('csv', 'both'):
+        print(f"   📊 Google Sheets: Upload the CSV file to Google Sheets (File → Import)")
+
+
+def save_to_csv(results: list[dict], output_file: str):
+    """Save results to CSV file (can be imported to Google Sheets)."""
+    import csv
+    
+    headers = [
+        'No', 'Business Name', 'Category', 'Address', 'Phone',
+        'Website', 'Email', 'Instagram', 'Facebook', 'TikTok',
+        'Rating', 'Reviews', 'Status', 'Hours', 'Google Maps URL',
+        'Description', 'Outreach Status', 'Notes'
+    ]
+    
+    with open(output_file, 'w', newline='', encoding='utf-8-sig') as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        
+        for idx, result in enumerate(results, 1):
+            social = result.get('social_media', {})
+            writer.writerow([
+                idx,
+                result.get('name', ''),
+                result.get('category', ''),
+                result.get('address', ''),
+                result.get('phone', ''),
+                result.get('website', ''),
+                result.get('email', ''),
+                social.get('instagram', result.get('social_instagram', '')),
+                social.get('facebook', result.get('social_facebook', '')),
+                social.get('tiktok', result.get('social_tiktok', '')),
+                result.get('rating', ''),
+                result.get('reviews', ''),
+                result.get('status', ''),
+                result.get('hours', ''),
+                result.get('maps_url', ''),
+                result.get('description', ''),
+                '',
+                '',
+            ])
+    
+    print(f"📄 CSV saved to: {output_file}")
 
 
 if __name__ == '__main__':
