@@ -1,5 +1,5 @@
 """
-Google Maps Business Scraper — Beautiful GUI
+Google Maps Business Scraper — Beautiful GUI with All Features
 Run: streamlit run gmaps_gui.py
 """
 
@@ -16,6 +16,9 @@ from playwright.sync_api import sync_playwright
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+from utils.email_extractor import get_website_info
+from utils.proxy_rotator import ProxyRotator
 
 
 # ========== HELPER FUNCTIONS ==========
@@ -233,7 +236,7 @@ def visit_detail_page(listing, page) -> dict:
     return data
 
 
-def scrape_google_maps(query: str, max_results: int = 30, progress_callback=None) -> list:
+def scrape_google_maps(query: str, max_results: int = 30, extract_emails: bool = False, progress_callback=None) -> list:
     results = []
 
     with sync_playwright() as p:
@@ -315,6 +318,28 @@ def scrape_google_maps(query: str, max_results: int = 30, progress_callback=None
 
         browser.close()
 
+    # Extract emails and social media
+    if extract_emails and results:
+        if progress_callback:
+            progress_callback(0, len(results), "📧 Extracting emails & social media...")
+        
+        for i, result in enumerate(results):
+            if result.get('website'):
+                try:
+                    website_info = get_website_info(result['website'])
+                    
+                    if website_info.get('email'):
+                        result['email'] = website_info['email']
+                    if website_info.get('social_media'):
+                        result['social_media'] = website_info['social_media']
+                        for platform, link in website_info['social_media'].items():
+                            result[f'social_{platform}'] = link if isinstance(link, str) else link[0]
+                    
+                    if progress_callback:
+                        progress_callback(i + 1, len(results), f"📧 {result['name']}")
+                except:
+                    pass
+
     return results
 
 
@@ -338,13 +363,15 @@ def create_excel(results: list, query: str) -> bytes:
 
     columns = [
         ('No', 5), ('Business Name', 30), ('Category', 20), ('Address', 40),
-        ('Phone', 18), ('Website', 30), ('Email', 28), ('Rating', 8),
-        ('Reviews', 9), ('Status', 10), ('Hours', 30), ('Google Maps URL', 45),
-        ('Description', 35), ('Outreach Status', 15), ('Notes', 25),
+        ('Phone', 18), ('Website', 30), ('Email', 28),
+        ('Instagram', 25), ('Facebook', 25), ('TikTok', 25),
+        ('Rating', 8), ('Reviews', 9), ('Status', 10), ('Hours', 30),
+        ('Google Maps URL', 45), ('Description', 35),
+        ('Outreach Status', 15), ('Notes', 25),
     ]
 
     # Title
-    ws.merge_cells('A1:O1')
+    ws.merge_cells('A1:R1')
     title_cell = ws['A1']
     title_cell.value = f"📊 Business Leads — {query}"
     title_cell.font = Font(name='Calibri', bold=True, size=16, color='6366f1')
@@ -352,7 +379,7 @@ def create_excel(results: list, query: str) -> bytes:
     ws.row_dimensions[1].height = 40
 
     # Subtitle
-    ws.merge_cells('A2:O2')
+    ws.merge_cells('A2:R2')
     sub_cell = ws['A2']
     sub_cell.value = f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')} • {len(results)} businesses"
     sub_cell.font = Font(name='Calibri', size=10, color='94A3B8', italic=True)
@@ -373,18 +400,19 @@ def create_excel(results: list, query: str) -> bytes:
     # Data
     for idx, result in enumerate(results):
         row = header_row + 1 + idx
-        email = result.get('email', '')
-        if not email and result.get('website'):
-            domain = result['website'].replace('www.', '')
-            email = f"info@{domain}"
+        social = result.get('social_media', {})
 
         values = [
             idx + 1, result.get('name', ''), result.get('category', ''),
             result.get('address', ''), result.get('phone', ''),
-            result.get('website', ''), email, result.get('rating', ''),
-            result.get('reviews', ''), result.get('status', ''),
-            result.get('hours', ''), result.get('maps_url', ''),
-            result.get('description', ''), '', '',
+            result.get('website', ''), result.get('email', ''),
+            social.get('instagram', result.get('social_instagram', '')),
+            social.get('facebook', result.get('social_facebook', '')),
+            social.get('tiktok', result.get('social_tiktok', '')),
+            result.get('rating', ''), result.get('reviews', ''),
+            result.get('status', ''), result.get('hours', ''),
+            result.get('maps_url', ''), result.get('description', ''),
+            '', '',
         ]
 
         for col_idx, value in enumerate(values, 1):
@@ -398,7 +426,7 @@ def create_excel(results: list, query: str) -> bytes:
         if result.get('website'):
             ws.cell(row=row, column=6).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
         if result.get('maps_url'):
-            ws.cell(row=row, column=12).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
+            ws.cell(row=row, column=15).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
 
         ws.row_dimensions[row].height = 24
 
@@ -411,7 +439,7 @@ def create_excel(results: list, query: str) -> bytes:
         )
         first_data_row = header_row + 1
         last_data_row = header_row + len(results)
-        dv.add(f'N{first_data_row}:N{last_data_row}')
+        dv.add(f'Q{first_data_row}:Q{last_data_row}')
         ws.add_data_validation(dv)
 
     ws.freeze_panes = f'A{header_row + 1}'
@@ -420,7 +448,7 @@ def create_excel(results: list, query: str) -> bytes:
         last_col = get_column_letter(len(columns))
         ws.auto_filter.ref = f'A{header_row}:{last_col}{header_row + len(results)}'
 
-    # Summary
+    # Summary sheet
     ws2 = wb.create_sheet("Summary")
     summary_data = [
         ("📊 Outreach Summary", ""),
@@ -429,6 +457,9 @@ def create_excel(results: list, query: str) -> bytes:
         ("Total Businesses", len(results)),
         ("With Phone", sum(1 for r in results if r.get('phone'))),
         ("With Website", sum(1 for r in results if r.get('website'))),
+        ("With Email", sum(1 for r in results if r.get('email'))),
+        ("With Instagram", sum(1 for r in results if r.get('social_instagram'))),
+        ("With Facebook", sum(1 for r in results if r.get('social_facebook'))),
         ("Generated", datetime.now().strftime('%d %B %Y, %H:%M')),
         ("", ""),
         ("📝 Outreach Tips", ""),
@@ -440,7 +471,7 @@ def create_excel(results: list, query: str) -> bytes:
     ]
     for row_idx, (key, val) in enumerate(summary_data, 1):
         ws2.cell(row=row_idx, column=1, value=key).font = Font(name='Calibri', bold=True, size=11)
-        ws2.cell(row=row_idx, column=2, value=val).font = Font(name='Calibri', size=11)
+        ws2.cell(row=row_idx, column=2, value=str(val)).font = Font(name='Calibri', size=11)
     ws2.column_dimensions['A'].width = 25
     ws2.column_dimensions['B'].width = 50
     ws2['A1'].font = Font(name='Calibri', bold=True, size=16, color='6366f1')
@@ -534,7 +565,7 @@ st.markdown("""
     /* Stat Cards */
     .stat-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 1rem;
         margin: 1.5rem 0;
     }
@@ -618,6 +649,11 @@ st.markdown("""
         font-size: 0.85rem !important;
     }
     
+    /* Checkbox */
+    .stCheckbox label {
+        color: #94a3b8 !important;
+    }
+    
     /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
@@ -665,12 +701,6 @@ st.markdown("""
         background: rgba(30, 41, 59, 0.8) !important;
         border-radius: 10px !important;
         height: 10px !important;
-    }
-    
-    /* Table */
-    .stDataFrame {
-        border-radius: 14px !important;
-        overflow: hidden !important;
     }
     
     /* Divider */
@@ -747,6 +777,14 @@ with col2:
         label_visibility="collapsed"
     )
 
+# Options
+col3, col4 = st.columns(2)
+with col3:
+    extract_emails = st.checkbox("📧 Extract emails & social media from websites", value=False, 
+                                  help="Kunjungi website bisnis untuk cari email, Instagram, Facebook, TikTok")
+with col4:
+    st.markdown("")  # Spacer
+
 # Example queries
 st.markdown("""
 <div class="examples">
@@ -785,7 +823,8 @@ if st.button("🚀  Start Scraping", use_container_width=True):
         results = []
 
         def progress_callback(current, total, name):
-            progress_bar.progress(current / total)
+            if total > 0:
+                progress_bar.progress(current / total)
             status_text.markdown(f"""
             <div class="status-text">
                 <strong>[{current}/{total}]</strong> ✅ {name}
@@ -794,7 +833,7 @@ if st.button("🚀  Start Scraping", use_container_width=True):
 
         with st.spinner(""):
             try:
-                results = scrape_google_maps(query, max_results, progress_callback)
+                results = scrape_google_maps(query, max_results, extract_emails, progress_callback)
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
@@ -817,7 +856,8 @@ if st.button("🚀  Start Scraping", use_container_width=True):
             # Stats
             phone_count = sum(1 for r in results if r.get('phone'))
             website_count = sum(1 for r in results if r.get('website'))
-            address_count = sum(1 for r in results if r.get('address'))
+            email_count = sum(1 for r in results if r.get('email'))
+            instagram_count = sum(1 for r in results if r.get('social_instagram'))
             
             st.markdown(f"""
             <div class="stat-grid">
@@ -837,9 +877,14 @@ if st.button("🚀  Start Scraping", use_container_width=True):
                     <div class="stat-label">Website</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">📍</div>
-                    <div class="stat-value">{address_count}</div>
-                    <div class="stat-label">Address</div>
+                    <div class="stat-icon">📧</div>
+                    <div class="stat-value">{email_count}</div>
+                    <div class="stat-label">Email</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📱</div>
+                    <div class="stat-value">{instagram_count}</div>
+                    <div class="stat-label">Instagram</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -859,11 +904,14 @@ if st.button("🚀  Start Scraping", use_container_width=True):
             
             preview_data = []
             for r in results:
+                social = r.get('social_media', {})
                 preview_data.append({
                     "Name": r.get('name', ''),
                     "📞 Phone": r.get('phone', ''),
                     "🌐 Website": r.get('website', ''),
-                    "📍 Address": (r.get('address', '')[:50] + '...') if len(r.get('address', '')) > 50 else r.get('address', ''),
+                    "📧 Email": r.get('email', ''),
+                    "📱 Instagram": social.get('instagram', r.get('social_instagram', '')),
+                    "📍 Address": (r.get('address', '')[:40] + '...') if len(r.get('address', '')) > 40 else r.get('address', ''),
                 })
             st.dataframe(preview_data, use_container_width=True, hide_index=True)
             

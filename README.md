@@ -9,13 +9,29 @@ Scrape business leads from Google Maps → formatted Excel for outreach campaign
 
 ## ✨ Features
 
+### Core Scraping
 - 🔍 **Auto-scrape** from Google Maps (no API key needed)
 - 📞 **Phone numbers**, 🌐 **websites**, 📍 **full addresses**
 - ⭐ **Ratings & reviews**, 🕐 **opening hours**
+- 📝 **Business descriptions**
+
+### Email & Social Media Extraction
+- 📧 **Auto-extract emails** from business websites
+- 📱 **Instagram**, **Facebook**, **TikTok**, **Twitter/X** links
+- 💬 **WhatsApp**, **Telegram** links
+- 🔗 **LinkedIn** company pages
+- 🔍 Scrapes `/contact`, `/about`, `/hubungi` pages too
+
+### Export & Integration
 - 📊 **Formatted Excel** with headers, filters, dropdowns
 - 📋 **Outreach Status** tracking (Not Contacted → Closed)
-- 🎨 **Beautiful GUI** (Streamlit web app)
-- 💻 **CLI mode** for automation/scripting
+- 📄 **JSON backup** for data processing
+- 📈 **Google Sheets** integration (coming soon)
+
+### Proxy Support
+- 🔄 **Proxy rotation** for large-scale scraping
+- 📁 Load proxies from file or comma-separated string
+- 🎲 Automatic rotation with failure detection
 
 ## 📸 Screenshots
 
@@ -48,8 +64,14 @@ Opens at `http://localhost:8501`
 # Basic usage
 python3 gmaps_scraper.py "klinik kecantikan Jakarta"
 
-# With options
-python3 gmaps_scraper.py "digital marketing agency Surabaya" --max 50 --output leads.xlsx
+# With email extraction
+python3 gmaps_scraper.py "digital marketing agency Surabaya" --max 50 --extract-emails
+
+# With proxy rotation
+python3 gmaps_scraper.py "restaurant Bali" --max 100 --proxy-file proxies.txt
+
+# With inline proxies
+python3 gmaps_scraper.py "hotel Bandung" --max 50 --proxies "http://proxy1:8080,http://proxy2:8080"
 ```
 
 ## 📊 Excel Output Format
@@ -62,7 +84,10 @@ python3 gmaps_scraper.py "digital marketing agency Surabaya" --max 50 --output l
 | Address | Full address |
 | Phone | Phone number |
 | Website | Business website |
-| Email | Guessed from website |
+| **Email** | Extracted from website |
+| **Instagram** | Instagram profile link |
+| **Facebook** | Facebook page link |
+| **TikTok** | TikTok profile link |
 | Rating | Google rating (1-5) |
 | Reviews | Number of reviews |
 | Status | Open/Closed |
@@ -72,6 +97,50 @@ python3 gmaps_scraper.py "digital marketing agency Surabaya" --max 50 --output l
 | **Outreach Status** | Dropdown: Not Contacted → Closed |
 | **Notes** | Your notes |
 
+## 📧 Email Extraction
+
+The `--extract-emails` flag visits each business website and:
+
+1. Scans the homepage HTML for email patterns
+2. Checks `/contact`, `/about`, `/hubungi` pages
+3. Extracts from `mailto:` links
+4. Handles obfuscated emails `(at)` and `[dot]`
+5. Prioritizes emails matching the business domain
+6. Filters out false positives (sentry, w3.org, etc.)
+
+### Social Media Detection
+
+Automatically detects links to:
+- Instagram (instagram.com, instagr.am)
+- Facebook (facebook.com, fb.com)
+- TikTok (tiktok.com/@username)
+- Twitter/X (twitter.com, x.com)
+- YouTube (youtube.com/c/, /channel/, /@)
+- LinkedIn (linkedin.com/company/, /in/)
+- WhatsApp (wa.me, api.whatsapp.com)
+- Telegram (t.me, telegram.me)
+
+## 🔄 Proxy Rotation
+
+For large-scale scraping, use proxies to avoid rate limits:
+
+```bash
+# From file (one proxy per line)
+python3 gmaps_scraper.py "query" --proxy-file proxies.txt
+
+# Inline (comma-separated)
+python3 gmaps_scraper.py "query" --proxies "http://proxy1:8080,socks5://proxy2:1080"
+```
+
+### Proxy File Format
+
+```
+# proxies.txt
+http://proxy1.example.com:8080
+http://user:pass@proxy2.example.com:3128
+socks5://proxy3.example.com:1080
+```
+
 ## 🎯 Use Cases
 
 - 📧 **Email outreach** campaigns
@@ -79,6 +148,22 @@ python3 gmaps_scraper.py "digital marketing agency Surabaya" --max 50 --output l
 - 🏪 **Market research** by location
 - 📊 **Competitor analysis**
 - 🎯 **Sales prospecting**
+- 📱 **Social media marketing** (find Instagram/FB accounts)
+
+## 📁 Project Structure
+
+```
+maps-lead-scraper/
+├── gmaps_scraper.py          # CLI version
+├── gmaps_gui.py              # Streamlit GUI version
+├── requirements.txt          # Python dependencies
+├── README.md                 # This file
+└── utils/
+    ├── __init__.py
+    ├── email_extractor.py    # Email & social media extraction
+    ├── proxy_rotator.py      # Proxy rotation support
+    └── sheets_exporter.py    # Google Sheets integration (WIP)
+```
 
 ## ⚠️ Disclaimer
 
@@ -94,12 +179,14 @@ MIT License
 ## 🤝 Contributing
 
 Pull requests welcome! Ideas for improvement:
-- [ ] Email extraction from websites
-- [ ] Social media links scraping
+- [x] Email extraction from websites
+- [x] Social media links scraping
+- [x] Proxy rotation support
+- [ ] Google Sheets integration (in progress)
 - [ ] Multi-location batch scraping
-- [ ] Google Sheets integration
-- [ ] Proxy rotation support
-- [ ] Export to CRM formats
+- [ ] Export to CRM formats (HubSpot, Salesforce)
+- [ ] Email validation (MX record check)
+- [ ] Rate limiting & throttling
 
 ---
 
