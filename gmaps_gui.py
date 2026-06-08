@@ -362,13 +362,12 @@ def create_excel(results: list, query: str) -> bytes:
     )
 
     columns = [
-        ('No', 5), ('Business Name', 30), ('Phone', 18), ('Email', 28),
-        ('Address', 40), ('Website', 30), ('WhatsApp', 25),
-        ('Google Maps URL', 45),
+        ('No', 5), ('Business Name', 30), ('Phone/WhatsApp', 22), ('Email', 28),
+        ('Address', 40), ('Website', 30), ('Google Maps URL', 45),
     ]
 
     # Title
-    ws.merge_cells('A1:H1')
+    ws.merge_cells('A1:G1')
     title_cell = ws['A1']
     title_cell.value = f"📊 Business Leads — {query}"
     title_cell.font = Font(name='Calibri', bold=True, size=16, color='6366f1')
@@ -376,7 +375,7 @@ def create_excel(results: list, query: str) -> bytes:
     ws.row_dimensions[1].height = 40
 
     # Subtitle
-    ws.merge_cells('A2:H2')
+    ws.merge_cells('A2:G2')
     sub_cell = ws['A2']
     sub_cell.value = f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')} • {len(results)} businesses"
     sub_cell.font = Font(name='Calibri', size=10, color='94A3B8', italic=True)
@@ -399,12 +398,13 @@ def create_excel(results: list, query: str) -> bytes:
         row = header_row + 1 + idx
         social = result.get('social_media', {})
         whatsapp = social.get('whatsapp', result.get('social_whatsapp', ''))
+        phone = result.get('phone', '')
+        phone_whatsapp = whatsapp if whatsapp else phone
 
         values = [
-            idx + 1, result.get('name', ''), result.get('phone', ''),
+            idx + 1, result.get('name', ''), phone_whatsapp,
             result.get('email', ''), result.get('address', ''),
-            result.get('website', ''), whatsapp,
-            result.get('maps_url', ''),
+            result.get('website', ''), result.get('maps_url', ''),
         ]
 
         for col_idx, value in enumerate(values, 1):
@@ -417,9 +417,9 @@ def create_excel(results: list, query: str) -> bytes:
 
         # Make URLs clickable
         if result.get('website'):
-            ws.cell(row=row, column=6).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
+            ws.cell(row=row, column=5).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
         if result.get('maps_url'):
-            ws.cell(row=row, column=8).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
+            ws.cell(row=row, column=7).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
 
         ws.row_dimensions[row].height = 24
 
@@ -432,7 +432,7 @@ def create_excel(results: list, query: str) -> bytes:
         )
         first_data_row = header_row + 1
         last_data_row = header_row + len(results)
-        dv.add(f'H{first_data_row}:H{last_data_row}')
+        dv.add(f'G{first_data_row}:G{last_data_row}')
         ws.add_data_validation(dv)
 
     ws.freeze_panes = f'A{header_row + 1}'
@@ -899,13 +899,14 @@ if st.button("🚀  Start Scraping", use_container_width=True):
             for r in results:
                 social = r.get('social_media', {})
                 whatsapp = social.get('whatsapp', r.get('social_whatsapp', ''))
+                phone = r.get('phone', '')
+                phone_whatsapp = whatsapp if whatsapp else phone
                 preview_data.append({
                     "Name": r.get('name', ''),
-                    "📞 Phone": r.get('phone', ''),
+                    "📞 Phone/WA": phone_whatsapp,
                     "📧 Email": r.get('email', ''),
                     "📍 Address": (r.get('address', '')[:40] + '...') if len(r.get('address', '')) > 40 else r.get('address', ''),
                     "🌐 Website": r.get('website', ''),
-                    "💬 WhatsApp": whatsapp,
                 })
             st.dataframe(preview_data, use_container_width=True, hide_index=True)
             
@@ -930,15 +931,17 @@ if st.button("🚀  Start Scraping", use_container_width=True):
             from io import StringIO
             csv_buffer = StringIO()
             csv_writer = csv.writer(csv_buffer)
-            csv_headers = ['No', 'Business Name', 'Phone', 'Email', 'Address', 
-                          'Website', 'WhatsApp', 'Google Maps URL']
+            csv_headers = ['No', 'Business Name', 'Phone/WhatsApp', 'Email', 'Address',
+                          'Website', 'Google Maps URL']
             csv_writer.writerow(csv_headers)
             for idx, r in enumerate(results, 1):
                 social = r.get('social_media', {})
                 whatsapp = social.get('whatsapp', r.get('social_whatsapp', ''))
+                phone = r.get('phone', '')
+                phone_whatsapp = whatsapp if whatsapp else phone
                 csv_writer.writerow([
-                    idx, r.get('name', ''), r.get('phone', ''), r.get('email', ''),
-                    r.get('address', ''), r.get('website', ''), whatsapp,
+                    idx, r.get('name', ''), phone_whatsapp, r.get('email', ''),
+                    r.get('address', ''), r.get('website', ''),
                     r.get('maps_url', ''),
                 ])
             csv_data = csv_buffer.getvalue().encode('utf-8-sig')

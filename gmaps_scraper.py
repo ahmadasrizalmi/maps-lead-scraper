@@ -418,19 +418,19 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
     )
     
     # Columns - simplified for outreach
+    # Columns - simplified for outreach
     columns = [
         ('No', 5),
         ('Business Name', 30),
-        ('Phone', 18),
+        ('Phone/WhatsApp', 22),
         ('Email', 28),
         ('Address', 40),
         ('Website', 30),
-        ('WhatsApp', 25),
         ('Google Maps URL', 45),
     ]
     
     # Title
-    ws.merge_cells('A1:H1')
+    ws.merge_cells('A1:G1')
     title_cell = ws['A1']
     title_cell.value = f"📊 Business Leads — {query}"
     title_cell.font = Font(name='Calibri', bold=True, size=16, color='6366f1')
@@ -438,7 +438,7 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
     ws.row_dimensions[1].height = 40
     
     # Subtitle
-    ws.merge_cells('A2:H2')
+    ws.merge_cells('A2:G2')
     sub_cell = ws['A2']
     sub_cell.value = f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')} • {len(results)} businesses"
     sub_cell.font = Font(name='Calibri', size=10, color='94A3B8', italic=True)
@@ -461,18 +461,19 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
         row = header_row + 1 + idx
         social = result.get('social_media', {})
         
-        # Get WhatsApp from social_media dict
+        # Phone/WhatsApp: prefer WhatsApp link, fallback to phone
         social = result.get('social_media', {})
         whatsapp = social.get('whatsapp', result.get('social_whatsapp', ''))
+        phone = result.get('phone', '')
+        phone_whatsapp = whatsapp if whatsapp else phone
         
         values = [
             idx + 1,
             result.get('name', ''),
-            result.get('phone', ''),
+            phone_whatsapp,
             result.get('email', ''),
             result.get('address', ''),
             result.get('website', ''),
-            whatsapp,
             result.get('maps_url', ''),
         ]
         
@@ -487,9 +488,9 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
         # Make URLs clickable
         # Make URLs clickable
         if result.get('website'):
-            ws.cell(row=row, column=6).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
+            ws.cell(row=row, column=5).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
         if result.get('maps_url'):
-            ws.cell(row=row, column=8).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
+            ws.cell(row=row, column=7).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
         
         ws.row_dimensions[row].height = 24
     
@@ -503,7 +504,7 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
         )
         first_data_row = header_row + 1
         last_data_row = header_row + len(results)
-        dv.add(f'H{first_data_row}:H{last_data_row}')
+        dv.add(f'G{first_data_row}:G{last_data_row}')
         ws.add_data_validation(dv)
     
     # Freeze panes
@@ -619,15 +620,23 @@ Examples:
     if args.format in ('xlsx', 'both'):
         save_to_excel(results, args.output, args.query)
     
-    if args.format == 'csv':
-        csv_file = args.output.replace('.xlsx', '.csv')
-        save_to_csv(results, csv_file)
-    elif args.format == 'both':
-        csv_file = args.output.replace('.xlsx', '.csv')
+    if args.format in ('csv', 'both'):
+        # Generate CSV filename
+        if args.output.endswith('.xlsx'):
+            csv_file = args.output.replace('.xlsx', '.csv')
+        elif args.output.endswith('.csv'):
+            csv_file = args.output
+        else:
+            csv_file = args.output + '.csv'
         save_to_csv(results, csv_file)
     
     # Always save JSON backup
-    json_file = args.output.replace('.xlsx', '.json')
+    if args.output.endswith('.xlsx'):
+        json_file = args.output.replace('.xlsx', '.json')
+    elif args.output.endswith('.csv'):
+        json_file = args.output.replace('.csv', '.json')
+    else:
+        json_file = args.output + '.json'
     with open(json_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     print(f"📄 Raw JSON backup: {json_file}")
@@ -643,8 +652,8 @@ def save_to_csv(results: list[dict], output_file: str):
     import csv
     
     headers = [
-        'No', 'Business Name', 'Phone', 'Email', 'Address',
-        'Website', 'WhatsApp', 'Google Maps URL'
+        'No', 'Business Name', 'Phone/WhatsApp', 'Email', 'Address',
+        'Website', 'Google Maps URL'
     ]
     
     with open(output_file, 'w', newline='', encoding='utf-8-sig') as f:
@@ -654,14 +663,15 @@ def save_to_csv(results: list[dict], output_file: str):
         for idx, result in enumerate(results, 1):
             social = result.get('social_media', {})
             whatsapp = social.get('whatsapp', result.get('social_whatsapp', ''))
+            phone = result.get('phone', '')
+            phone_whatsapp = whatsapp if whatsapp else phone
             writer.writerow([
                 idx,
                 result.get('name', ''),
-                result.get('phone', ''),
+                phone_whatsapp,
                 result.get('email', ''),
                 result.get('address', ''),
                 result.get('website', ''),
-                whatsapp,
                 result.get('maps_url', ''),
             ])
     
