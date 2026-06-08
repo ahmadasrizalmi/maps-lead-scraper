@@ -362,16 +362,13 @@ def create_excel(results: list, query: str) -> bytes:
     )
 
     columns = [
-        ('No', 5), ('Business Name', 30), ('Category', 20), ('Address', 40),
-        ('Phone', 18), ('Website', 30), ('Email', 28),
-        ('Instagram', 25), ('Facebook', 25), ('TikTok', 25),
-        ('Rating', 8), ('Reviews', 9), ('Status', 10), ('Hours', 30),
-        ('Google Maps URL', 45), ('Description', 35),
-        ('Outreach Status', 15), ('Notes', 25),
+        ('No', 5), ('Business Name', 30), ('Phone', 18), ('Email', 28),
+        ('Address', 40), ('Website', 30), ('WhatsApp', 25),
+        ('Google Maps URL', 45),
     ]
 
     # Title
-    ws.merge_cells('A1:R1')
+    ws.merge_cells('A1:H1')
     title_cell = ws['A1']
     title_cell.value = f"📊 Business Leads — {query}"
     title_cell.font = Font(name='Calibri', bold=True, size=16, color='6366f1')
@@ -379,7 +376,7 @@ def create_excel(results: list, query: str) -> bytes:
     ws.row_dimensions[1].height = 40
 
     # Subtitle
-    ws.merge_cells('A2:R2')
+    ws.merge_cells('A2:H2')
     sub_cell = ws['A2']
     sub_cell.value = f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')} • {len(results)} businesses"
     sub_cell.font = Font(name='Calibri', size=10, color='94A3B8', italic=True)
@@ -401,18 +398,13 @@ def create_excel(results: list, query: str) -> bytes:
     for idx, result in enumerate(results):
         row = header_row + 1 + idx
         social = result.get('social_media', {})
+        whatsapp = social.get('whatsapp', result.get('social_whatsapp', ''))
 
         values = [
-            idx + 1, result.get('name', ''), result.get('category', ''),
-            result.get('address', ''), result.get('phone', ''),
-            result.get('website', ''), result.get('email', ''),
-            social.get('instagram', result.get('social_instagram', '')),
-            social.get('facebook', result.get('social_facebook', '')),
-            social.get('tiktok', result.get('social_tiktok', '')),
-            result.get('rating', ''), result.get('reviews', ''),
-            result.get('status', ''), result.get('hours', ''),
-            result.get('maps_url', ''), result.get('description', ''),
-            '', '',
+            idx + 1, result.get('name', ''), result.get('phone', ''),
+            result.get('email', ''), result.get('address', ''),
+            result.get('website', ''), whatsapp,
+            result.get('maps_url', ''),
         ]
 
         for col_idx, value in enumerate(values, 1):
@@ -423,10 +415,11 @@ def create_excel(results: list, query: str) -> bytes:
             if idx % 2 == 1:
                 cell.fill = alt_fill
 
+        # Make URLs clickable
         if result.get('website'):
             ws.cell(row=row, column=6).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
         if result.get('maps_url'):
-            ws.cell(row=row, column=15).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
+            ws.cell(row=row, column=8).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
 
         ws.row_dimensions[row].height = 24
 
@@ -439,7 +432,7 @@ def create_excel(results: list, query: str) -> bytes:
         )
         first_data_row = header_row + 1
         last_data_row = header_row + len(results)
-        dv.add(f'Q{first_data_row}:Q{last_data_row}')
+        dv.add(f'H{first_data_row}:H{last_data_row}')
         ws.add_data_validation(dv)
 
     ws.freeze_panes = f'A{header_row + 1}'
@@ -905,13 +898,14 @@ if st.button("🚀  Start Scraping", use_container_width=True):
             preview_data = []
             for r in results:
                 social = r.get('social_media', {})
+                whatsapp = social.get('whatsapp', r.get('social_whatsapp', ''))
                 preview_data.append({
                     "Name": r.get('name', ''),
                     "📞 Phone": r.get('phone', ''),
-                    "🌐 Website": r.get('website', ''),
                     "📧 Email": r.get('email', ''),
-                    "📱 Instagram": social.get('instagram', r.get('social_instagram', '')),
                     "📍 Address": (r.get('address', '')[:40] + '...') if len(r.get('address', '')) > 40 else r.get('address', ''),
+                    "🌐 Website": r.get('website', ''),
+                    "💬 WhatsApp": whatsapp,
                 })
             st.dataframe(preview_data, use_container_width=True, hide_index=True)
             
@@ -936,21 +930,16 @@ if st.button("🚀  Start Scraping", use_container_width=True):
             from io import StringIO
             csv_buffer = StringIO()
             csv_writer = csv.writer(csv_buffer)
-            csv_headers = ['No', 'Business Name', 'Category', 'Address', 'Phone', 'Website', 'Email', 
-                          'Instagram', 'Facebook', 'TikTok', 'Rating', 'Reviews', 'Status', 'Hours',
-                          'Google Maps URL', 'Description', 'Outreach Status', 'Notes']
+            csv_headers = ['No', 'Business Name', 'Phone', 'Email', 'Address', 
+                          'Website', 'WhatsApp', 'Google Maps URL']
             csv_writer.writerow(csv_headers)
             for idx, r in enumerate(results, 1):
                 social = r.get('social_media', {})
+                whatsapp = social.get('whatsapp', r.get('social_whatsapp', ''))
                 csv_writer.writerow([
-                    idx, r.get('name', ''), r.get('category', ''), r.get('address', ''),
-                    r.get('phone', ''), r.get('website', ''), r.get('email', ''),
-                    social.get('instagram', r.get('social_instagram', '')),
-                    social.get('facebook', r.get('social_facebook', '')),
-                    social.get('tiktok', r.get('social_tiktok', '')),
-                    r.get('rating', ''), r.get('reviews', ''), r.get('status', ''),
-                    r.get('hours', ''), r.get('maps_url', ''), r.get('description', ''),
-                    '', ''
+                    idx, r.get('name', ''), r.get('phone', ''), r.get('email', ''),
+                    r.get('address', ''), r.get('website', ''), whatsapp,
+                    r.get('maps_url', ''),
                 ])
             csv_data = csv_buffer.getvalue().encode('utf-8-sig')
             

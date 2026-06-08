@@ -417,30 +417,20 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
         bottom=Side(style='thin', color='E2E8F0')
     )
     
-    # Columns
+    # Columns - simplified for outreach
     columns = [
         ('No', 5),
         ('Business Name', 30),
-        ('Category', 20),
-        ('Address', 40),
         ('Phone', 18),
-        ('Website', 30),
         ('Email', 28),
-        ('Instagram', 25),
-        ('Facebook', 25),
-        ('TikTok', 25),
-        ('Rating', 8),
-        ('Reviews', 9),
-        ('Status', 10),
-        ('Hours', 30),
+        ('Address', 40),
+        ('Website', 30),
+        ('WhatsApp', 25),
         ('Google Maps URL', 45),
-        ('Description', 35),
-        ('Outreach Status', 15),
-        ('Notes', 25),
     ]
     
     # Title
-    ws.merge_cells('A1:R1')
+    ws.merge_cells('A1:H1')
     title_cell = ws['A1']
     title_cell.value = f"📊 Business Leads — {query}"
     title_cell.font = Font(name='Calibri', bold=True, size=16, color='6366f1')
@@ -448,7 +438,7 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
     ws.row_dimensions[1].height = 40
     
     # Subtitle
-    ws.merge_cells('A2:R2')
+    ws.merge_cells('A2:H2')
     sub_cell = ws['A2']
     sub_cell.value = f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')} • {len(results)} businesses"
     sub_cell.font = Font(name='Calibri', size=10, color='94A3B8', italic=True)
@@ -471,25 +461,19 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
         row = header_row + 1 + idx
         social = result.get('social_media', {})
         
+        # Get WhatsApp from social_media dict
+        social = result.get('social_media', {})
+        whatsapp = social.get('whatsapp', result.get('social_whatsapp', ''))
+        
         values = [
             idx + 1,
             result.get('name', ''),
-            result.get('category', ''),
-            result.get('address', ''),
             result.get('phone', ''),
-            result.get('website', ''),
             result.get('email', ''),
-            social.get('instagram', result.get('social_instagram', '')),
-            social.get('facebook', result.get('social_facebook', '')),
-            social.get('tiktok', result.get('social_tiktok', '')),
-            result.get('rating', ''),
-            result.get('reviews', ''),
-            result.get('status', ''),
-            result.get('hours', ''),
+            result.get('address', ''),
+            result.get('website', ''),
+            whatsapp,
             result.get('maps_url', ''),
-            result.get('description', ''),
-            '',  # Outreach Status
-            '',  # Notes
         ]
         
         for col_idx, value in enumerate(values, 1):
@@ -501,10 +485,11 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
                 cell.fill = alt_fill
         
         # Make URLs clickable
+        # Make URLs clickable
         if result.get('website'):
             ws.cell(row=row, column=6).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
         if result.get('maps_url'):
-            ws.cell(row=row, column=15).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
+            ws.cell(row=row, column=8).font = Font(name='Calibri', size=10, color='6366f1', underline='single')
         
         ws.row_dimensions[row].height = 24
     
@@ -518,7 +503,7 @@ def save_to_excel(results: list[dict], output_file: str, query: str):
         )
         first_data_row = header_row + 1
         last_data_row = header_row + len(results)
-        dv.add(f'Q{first_data_row}:Q{last_data_row}')
+        dv.add(f'H{first_data_row}:H{last_data_row}')
         ws.add_data_validation(dv)
     
     # Freeze panes
@@ -658,10 +643,8 @@ def save_to_csv(results: list[dict], output_file: str):
     import csv
     
     headers = [
-        'No', 'Business Name', 'Category', 'Address', 'Phone',
-        'Website', 'Email', 'Instagram', 'Facebook', 'TikTok',
-        'Rating', 'Reviews', 'Status', 'Hours', 'Google Maps URL',
-        'Description', 'Outreach Status', 'Notes'
+        'No', 'Business Name', 'Phone', 'Email', 'Address',
+        'Website', 'WhatsApp', 'Google Maps URL'
     ]
     
     with open(output_file, 'w', newline='', encoding='utf-8-sig') as f:
@@ -670,25 +653,16 @@ def save_to_csv(results: list[dict], output_file: str):
         
         for idx, result in enumerate(results, 1):
             social = result.get('social_media', {})
+            whatsapp = social.get('whatsapp', result.get('social_whatsapp', ''))
             writer.writerow([
                 idx,
                 result.get('name', ''),
-                result.get('category', ''),
-                result.get('address', ''),
                 result.get('phone', ''),
-                result.get('website', ''),
                 result.get('email', ''),
-                social.get('instagram', result.get('social_instagram', '')),
-                social.get('facebook', result.get('social_facebook', '')),
-                social.get('tiktok', result.get('social_tiktok', '')),
-                result.get('rating', ''),
-                result.get('reviews', ''),
-                result.get('status', ''),
-                result.get('hours', ''),
+                result.get('address', ''),
+                result.get('website', ''),
+                whatsapp,
                 result.get('maps_url', ''),
-                result.get('description', ''),
-                '',
-                '',
             ])
     
     print(f"📄 CSV saved to: {output_file}")
